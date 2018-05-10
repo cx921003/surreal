@@ -3,6 +3,7 @@ datageneration/smpl_data/*.npy
 datageneration/smpl_data/*.npz
 datageneration/smpl_data/textures
 datageneration/config
+datageneration/output_dataset*
 training/models/*.t7
 *~
 *.py[cod]
