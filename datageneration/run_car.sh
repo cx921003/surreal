@@ -24,5 +24,5 @@ export PATH=${FFMPEG_PATH}/bin:${PATH}
 for idx in $(seq 0 0);do
 JOB_PARAMS=${1:-'--idx 13 --ishape 0 --stride 50 --idx_cloth '$((idx*200))}
 echo $JOB_PARAMS
-$BLENDER_PATH/blender -b -P rendering_objects_chair.py -- ${JOB_PARAMS}
+$BLENDER_PATH/blender -b -P rendering_car.py -- ${JOB_PARAMS}
 done

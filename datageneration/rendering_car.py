@@ -307,7 +307,6 @@ def main():
     log_message("Setup Blender")
 
     scene = bpy.data.scenes['Scene']
-    scene.render.engine = 'CYCLES'
     bpy.data.materials['Material'].use_nodes = True
     scene.cycles.shading_system = True
     scene.use_nodes = True
@@ -341,116 +340,79 @@ def main():
     scn = bpy.context.scene
     idx = -N
     # LOOP TO RENDER
-    # shapenet_dir = '/home/xu/data/view_synthesis/ShapeNetCore.v2/02958343/' # car2
-    shapenet_dir = '/home/xu/data/view_synthesis/ShapeNetCore.v2/03001627/'  # chair
-    # shapenet_dir = '/home/xu/data/view_synthesis/02958343/'
-    sysp = bpy.context.user_preferences.system
+    # shapenet_dir = '/home/xu/data/view_synthesis/ShapeNetCore.v2/03001627/'  # chair
 
-    devt = sysp.compute_device_type
-    dev = sysp.compute_device
-
-    # get list of possible values of enum, see http://blender.stackexchange.com/a/2268/599
-    devt_list = sysp.bl_rna.properties['compute_device_type'].enum_items.keys()
-    dev_list = sysp.bl_rna.properties['compute_device'].enum_items.keys()
-
-    # pretty print
-    lines = [
-        ("Property", "Value", "Possible Values"),
-        ("Device Type:", devt, str(devt_list)),
-        ("Device:", dev, str(dev_list)),
-    ]
-    print("\nGPU compute configuration:")
-    for l in lines:
-        print("{0:<20} {1:<20} {2:<50}".format(*l))
-
-    scene.render.engine = 'CYCLES'
-    scene.cycles.device = 'GPU'
-    bpy.ops.object.lamp_add(type='HEMI', radius=1000, view_align=False, location=(0.0, 0.0, 1.0))
-    #    bpy.ops.object.lamp_add(type='HEMI', radius=1000, view_align=False, location=(0.0, 1.0, 1.0))
-    #    bpy.ops.object.lamp_add(type='HEMI', radius=1000, view_align=False, location=(0.0, -1.0, 1.0))
-
-    bpy.data.lamps['Hemi'].energy = 10.
+    bpy.ops.object.lamp_add(type='HEMI', radius=1000, view_align=False, location=(0, 0, 5.0))
+    bpy.data.lamps['Hemi'].energy = 2.
     scene.render.use_shadows = False
-    # clear default lights
-    # bpy.ops.object.select_by_type(type='LAMP')
-    # bpy.ops.object.delete(use_global=False)
 
-    # # set environment lighting
-    # bpy.context.space_data.context = 'WORLD'
-    # bpy.context.scene.world.light_settings.use_environment_light = True
-    # bpy.context.scene.world.light_settings.environment_energy = 1000
-    # bpy.context.scene.world.light_settings.environment_color = 'PLAIN'
+    shapenet_dir =  '/home/xu/data/view_synthesis/02958343'
+
+    with open('/home/xu/workspace/appearance-flow/data/car/train_shapes.txt', 'r') as content_file:
+        model_list = sorted( [line.strip() for line in content_file] )
+
     stop = False
-    for root, folder, files in os.walk(shapenet_dir):
-        if stop:
+    scene.render.alpha_mode = 'TRANSPARENT'
+    for model in model_list:
+
+        print (idx / N, '/', len(model_list))
+
+        path = os.path.join(shapenet_dir,model,'model.obj')
+
+        idx += N
+        if idx / N < start_n:
+            continue
+        if idx / N > start_n + 200:
             break
-        for f in sorted(folder):
-            print (idx / N, '/', len(folder))
-            path = os.path.join(shapenet_dir, f, 'models/model_normalized.obj')
-            # path = os.path.join(shapenet_dir,f,'model.obj')
 
-            idx += N
-            if idx / N < start_n:
-                continue
-            if idx / N > start_n + 200:
-                stop = True
-                break
+        if not os.path.exists(path):
+            print('missing object')
+            continue
 
-            if not os.path.exists(path):
-                print('missing object')
-                continue
-            bpy.ops.import_scene.obj(filepath=path, split_mode='OFF')
+        bpy.ops.import_scene.obj(filepath=path, split_mode='OFF')
 
-            # mat_tree = bpy.data.materials['Material'].node_tree
-            # emission = mat_tree.nodes.new('ShaderNodeEmission')
-            # emission.location = -60, 400
-            # emission.inputs[1].default_value = 1.
-            # mat_out = mat_tree.nodes.new('ShaderNodeOutputMaterial')
-            # mat_out.location = 110, 400
-            # mat_tree.links.new(emission.outputs[0], mat_out.inputs['Surface'])
+        for n in range(N):
+            scene.frame_set(idx + n)
+            scn.objects.active = cam_ob
+            angle = n * math.pi / 9.  # + math.pi   #(n) / 2 * math.pi / 2.
+            cam_ob.location = (-1.7 * math.sin(angle), -1.7 * math.cos(angle), 0.9)
+            # cam_ob.location = (-2 * math.sin( angle), -2 * math.cos(angle), 0.2)
 
-            for n in range(N):
-                scene.frame_set(idx + n)
-                scn.objects.active = cam_ob
-                angle = n * math.pi / 9.  # + math.pi   #(n) / 2 * math.pi / 2.
-                cam_ob.location = (-1.7 * math.sin(angle), -1.7 * math.cos(angle), 0.9)
-                # cam_ob.location = (-2 * math.sin( angle), -2 * math.cos(angle), 0.2)
+            cam_ob.keyframe_insert('location', frame=idx + n)
+            cam_ob.rotation_euler = (0.35 * math.pi, 0, -angle)
+            # cam_ob.rotation_euler = (0.5 * math.pi, 0,  -angle)
 
-                cam_ob.keyframe_insert('location', frame=idx + n)
-                cam_ob.rotation_euler = (0.35 * math.pi, 0, -angle)
-                # cam_ob.rotation_euler = (0.5 * math.pi, 0,  -angle)
+            cam_ob.keyframe_insert('rotation_euler', frame=idx + n)
+            scene.update()
 
-                cam_ob.keyframe_insert('rotation_euler', frame=idx + n)
-                scene.update()
+        for n in range(N):
+            scene.frame_set(idx + n)
 
-            for n in range(N):
-                scene.frame_set(idx + n)
+            scene.render.use_antialiasing = True
+            scene.render.filepath = join(rgb_path, '%05d.png' % (idx + n))
+            # log_message("Rendering frame %d/%d" % (seq_frame,idx_cloth) )
 
-                scene.render.use_antialiasing = False
-                scene.render.filepath = join(rgb_path, '%05d.png' % (idx + n))
-                # log_message("Rendering frame %d/%d" % (seq_frame,idx_cloth) )
+            # disable render output
+            logfile = '/dev/null'
+            open(logfile, 'a').close()
+            old = os.dup(1)
+            sys.stdout.flush()
+            os.close(1)
+            os.open(logfile, os.O_WRONLY)
 
-                # disable render output
-                logfile = '/dev/null'
-                open(logfile, 'a').close()
-                old = os.dup(1)
-                sys.stdout.flush()
-                os.close(1)
-                os.open(logfile, os.O_WRONLY)
+            bpy.ops.render.render(write_still=True, viewpoint=True)
+            # disable output redirection
+            os.close(1)
+            os.dup(old)
+            os.close(old)
 
-                bpy.ops.render.render(write_still=True)
-                # disable output redirection
-                os.close(1)
-                os.dup(old)
-                os.close(old)
-
-            for obj in bpy.data.objects:
-                print(obj.name)
-                if 'Camera' not in obj.name and 'Lamp' not in obj.name and 'Hemi' not in obj.name:
-                    bpy.ops.object.select_all(action='DESELECT')
-                    obj.select = True
-                    bpy.ops.object.delete(use_global=False)
-            cam_ob.animation_data_clear()
+        for obj in bpy.data.objects:
+            print(obj.name)
+            if 'Camera' not in obj.name and 'Lamp' not in obj.name and 'Hemi' not in obj.name:
+                bpy.ops.object.select_all(action='DESELECT')
+                obj.select = True
+                bpy.ops.object.delete(use_global=False)
+        cam_ob.animation_data_clear()
 
 
 if __name__ == '__main__':
